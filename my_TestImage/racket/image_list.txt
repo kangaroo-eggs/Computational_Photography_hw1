@@ -1,0 +1,17 @@
+# Filename    exposure       shutter_speed  f/stop  gain(db)
+racket01.png  1000              0.001       1.8     0       
+racket02.png   500              0.002       1.8     0       
+racket03.png   250              0.004       1.8     0       
+racket04.png   125              0.008       1.8     0       
+racket05.png    60              0.016       1.8     0       
+racket06.png    30              0.033       1.8     0       
+racket07.png    15              0.066       1.8     0       
+racket08.png     8              0.125       1.8     0       
+racket09.png     4              0.25        1.8     0       
+racket10.png     2              0.5         1.8     0       
+racket11.png     1              1           1.8     0       
+racket12.png     0.5            2           1.8     0       
+racket13.png     0.25           4           1.8     0       
+racket14.png     0.125          8           1.8     0       
+racket15.png     0.0625        16           1.8     0       
+racket16.png     0.03125       32           1.8     0       
