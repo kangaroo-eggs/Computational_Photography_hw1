@@ -15,7 +15,7 @@ from HDR_functions import EstimateResponse, ConstructRadiance, CameraResponseCal
 # During implementation, it is recommended to set TEST_PAT_SIZE 'small' for quick debugging.
 # However, you have to pass the unit test with TEST_PAT_SIZE 'large' to get the full score in each part.
 # Note that for large pattern size, the bilateral filtering process may take longer time to complete.
-TEST_PAT_SIZE = 'small'
+TEST_PAT_SIZE = 'large'
 
 def Cal_PSNR(img1, img2):
     img1 = img1.astype(np.float32)

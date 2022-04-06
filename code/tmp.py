@@ -6,7 +6,7 @@ from fileinput import close
 from math import radians
 import os
 from pkgutil import extend_path
-from re import S, X
+from re import X
 import re
 from sqlite3 import Row
 from tarfile import LENGTH_NAME
@@ -18,7 +18,6 @@ import cv2 as cv
 from cv2 import norm
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 
 Z = 256  # intensity levels
 Z_max = 255
@@ -163,7 +162,6 @@ def ConstructRadiance(img_list, response, etime_list):
     Returns:
         radiance (float ndarray, shape (height, width)): radiance map
     """
-    
     # (m*n)*k -> m*n
     ''' TODO '''
     N, rows, cols = img_list.shape
@@ -171,54 +169,27 @@ def ConstructRadiance(img_list, response, etime_list):
     #build z_ij
     for n in range(N): 
         z[:,n] = img_list[n,:,:].flatten('C')  
-    # print(time.time())
-
-    # weighted function, compute matrix w(Z_ij) cost 5s
-    w = z.copy()
-    bound = 0.5*(Z_max+Z_min)
-    for ele in np.nditer(w, order='C', op_flags=['readwrite']):
-        if ele > bound:
-            ele[...] = Z_max-ele
-    # print(time.time())
-
-    # create g(Z_ij) 
-    g = z.copy()
-    for ele in np.nditer(g, order='C', op_flags=['readwrite']):
-        ele[...] = response[int(ele)]
-    t = np.log(np.reshape(np.tile(etime_list, rows*cols), (rows*cols, N)))
-    g = g-t
-
-    #radiance   use one loop 優化
+           
+    #weighted function
+    def w(z):
+        if z <= 0.5*(Z_max+Z_min):
+            return z
+        else:
+            return Z_max-z
+    
+    #radiance   use one loop to modify
     E, deno, numer = np.zeros((rows*cols)), np.zeros((rows*cols)), np.zeros((rows*cols))
     for i in range(rows*cols):
-        numer[i] = np.dot(w[i,:], g[i,:])
-        deno[i] = np.sum(w[i,:])    
+        w_i, n_i = np.zeros((N)), np.zeros((N))
+        for j in range(N):          # 可以連同 w 一起優化? 
+            w_i[j] = w(z[i,j])
+            n_i[j] = response[int(z[i,j])]
+        n_i = n_i - np.log(etime_list)
+        numer[i] = np.dot(w_i,n_i)
+        deno[i] = np.sum(w_i)     
     E = np.exp(numer/deno)
     radiance = np.reshape(E, (rows,cols))
-    # print(time.time())
-
-    # # old version(6.763s in large vs new version 9s)
-    # #weighted function
-    # def w(z):
-    #     if z <= 0.5*(Z_max+Z_min):
-    #         return z
-    #     else:
-    #         return Z_max-z
-    # print(time.time())
-    # #radiance   use one loop to modify
-    # E, deno, numer = np.zeros((rows*cols)), np.zeros((rows*cols)), np.zeros((rows*cols))
-    # for i in range(rows*cols):
-    #     w_i, n_i = np.zeros((N)), np.zeros((N))
-    #     for j in range(N):          # 可以連同 w 一起優化? 
-    #         w_i[j] = w(z[i,j])
-    #         n_i[j] = response[int(z[i,j])]
-    #     n_i = n_i - np.log(etime_list)
-    #     numer[i] = np.dot(w_i,n_i)
-    #     deno[i] = np.sum(w_i)     
-    # E = np.exp(numer/deno)
-    # radiance = np.reshape(E, (rows,cols))
-    # print(time.time())
-
+    
     return radiance
 
 
@@ -428,29 +399,21 @@ def BilateralFilter(src, N=35, sigma_s=100, sigma_r=0.8):
     sigma_s = 2*sigma_s**2; sigma_r = 2*sigma_r**2
     #only calculate the first term onces
     L_B, deno = np.zeros((src.shape)), np.zeros((src.shape))
-
-    w, numer_s, numer_r = np.zeros((2*added+1,2*added+1)), np.zeros((2*added+1,2*added+1)), np.zeros((2*added+1,2*added+1))     # filter w
-    for u in range(numer_s.shape[0]):
-        for v in range(numer_s.shape[1]):
-            k, l = u-added, v-added
-            numer_s[u,v] = -(k**2+l**2)
-    numer_s = numer_s/sigma_s
     for i in range(rows):
         for j in range(cols):
-            s = src[i,j]
+            w, numer_s, numer_r = np.zeros((2*added+1,2*added+1)), np.zeros((2*added+1,2*added+1)), np.zeros((2*added+1,2*added+1))     # filter w
             for u in range(w.shape[0]):
                 for v in range(w.shape[1]):
-                    # k, l = u-added, v-added
-                    # numer_r[u,v] = -(S-extended_src[i+added+k, j+added+l])**2
-                    numer_r[u,v] = -(s-extended_src[i+u, j+v])**2
-            w = numer_s+numer_r/sigma_r
+                    k, l = u-added, v-added
+                    numer_s[u,v] = -(k**2+l**2)
+                    numer_r[u,v] = -(src[i,j]-extended_src[i+added+k, j+added+l])**2
+            w = numer_s/sigma_s+numer_r/sigma_r
             w = np.exp(w)
             L_B[i,j] = np.trace(np.dot(extended_src[i:i+w.shape[0], j:j+w.shape[1]], w.T))
             deno[i,j] = np.sum(w)
     result = L_B/deno
     #print('2')
     return result   #L_B
-
 
 #==============================================================
 # 2-1a & 2-2-1
